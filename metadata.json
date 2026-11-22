@@ -1,0 +1,7 @@
+{
+  "name": "ScreenRec",
+  "description": "Simple screen recording application for Debian-based Linux distributions with X11 and Wayland auto-detection, system and microphone audio capture, mouse cursor toggle, MP4 export, and Debian .deb packaging.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

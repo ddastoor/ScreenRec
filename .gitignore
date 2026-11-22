@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-deb/
+dist-electron/
+.playwright-cli/
+.env
+.env.local
+*.log
+.DS_Store

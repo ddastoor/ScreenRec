@@ -1,0 +1,32 @@
+appId: linux.screenrec.app
+productName: ScreenRec
+executableName: screenrec
+directories:
+  output: dist-electron
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+linux:
+  target:
+    - target: deb
+      arch:
+        - x64
+  category: AudioVideo;Video;Recorder
+  maintainer: ScreenRec Contributors <maintainers@screenrec.linux>
+  synopsis: Simple screen recorder for Debian-based Linux with X11/Wayland auto-detection and MP4 export
+  desktop:
+    Name: ScreenRec
+    Comment: Record screen, window, or tab with system audio, mic, cursor toggle, and MP4 output
+    Categories: AudioVideo;Video;Recorder;
+    StartupNotify: "true"
+deb:
+  packageName: screenrec
+  priority: optional
+  depends:
+    - ffmpeg
+    - libnotify4
+    - libnss3
+    - libxtst6
+    - xdg-utils
+    - xdg-desktop-portal

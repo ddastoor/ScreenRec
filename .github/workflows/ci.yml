@@ -1,0 +1,44 @@
+name: CI Test Suite
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-and-verify:
+    name: Test Suite & Debian .deb Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies (FFmpeg & dpkg-deb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg dpkg
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Typecheck (TypeScript)
+        run: npm run lint
+
+      - name: Build production frontend bundle
+        run: npm run build
+
+      - name: Run full unit & integration test suite
+        run: npm test
+
+      - name: Build & verify Debian .deb package
+        run: |
+          npm run build:deb
+          dpkg-deb --info dist-deb/screenrec_*_amd64.deb
+          dpkg-deb --contents dist-deb/screenrec_*_amd64.deb
