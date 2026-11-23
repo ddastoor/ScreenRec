@@ -1,47 +1,38 @@
 # ScreenRec
 
-Simple screen recording application for **Debian-based Linux distributions** (Debian 12+, Ubuntu 22.04/24.04+, Linux Mint, Pop!_OS, Kali) with automatic **X11 / Wayland** detection on startup and direct **MP4** export.
+Natively compiled **C11 + GTK3** screen recording application for **Debian-based Linux distributions** — including **Debian 12 (Bookworm) & 13 (Trixie)**, **Ubuntu 22.04 & 24.04+ LTS**, **Linux Mint 21/22 & LMDE 6**, **MX Linux 23**, **Pop!_OS**, **KDE neon**, **Zorin OS**, **Elementary OS**, **Devuan**, and **Kali** — distributed as a **1-click GUI `.deb` installation file** with automatic **Wayland & X11** startup detection and direct **MP4** export.
 
 ## Features
 
-- **Startup Display Server Auto-Detection**: Automatically detects **Wayland** (`xdg-desktop-portal` + PipeWire) vs **X11** (`X.Org` / `x11grab`) as soon as the app launches—properly prioritizing Wayland sockets even when XWayland (`DISPLAY`) is present.
-- **Flexible Capture Targets**: Record your **Entire Screen**, a single **Application Window**, or a **Browser Tab**.
-- **System Audio + Microphone**: Record desktop/system audio, optionally mix in microphone voiceover, or record silent video.
-- **Mouse Cursor Toggle**: Choose whether the mouse pointer is included or hidden in the screencast.
-- **Standards-Compliant MP4 Output**: Exports H.264 (`yuv420p`) + AAC `.mp4` files with `+faststart` metadata via FFmpeg.
-- **Debian `.deb` Release Packaging**: Ships with both a local `dpkg-deb` builder (`npm run build:deb`) and an automated GitHub Actions release pipeline (`.github/workflows/release.yml`) that publishes standalone `.deb` installers to GitHub Releases.
+- **Natively Compiled C11 + GTK3 Desktop App (`/usr/bin/screenrec`)**: Lightweight stripped x86-64 ELF binary (~72 KB) using native GTK3 widgets, `GtkHeaderBar`, `GtkFileChooserNative`, GIO `GDBusConnection`, and `libX11`—zero Electron bloat and zero localhost web wrapper.
+- **Broad Multi-Distro Debian Compatibility**:
+  - **Pre-`t64` & `t64` ABI Safe**: `DEBIAN/control` depends on concrete universal Debian packages (`libc6, libgtk-3-bin, libx11-6, ffmpeg, x11-utils, pulseaudio-utils`) with zero `|` OR-alternates, working seamlessly across Debian 12/13, Ubuntu 22.04/24.04+, Mint, MX Linux, Pop!_OS, and KDE Discover (`aptcc`).
+  - **systemd & Non-systemd Support**: Works on both `systemd` distros (Debian, Ubuntu, Mint, Pop!_OS) and `SysVinit` / `elogind` distros (MX Linux, Devuan, antiX).
+- **1-Click GUI Installation & Launch (Zero Command Line Needed)**: Double-click `screenrec_2.0.0_amd64.deb` in **GNOME Software**, **KDE Discover**, **GDebi**, **MintInstall**, or **MX Package Installer**, then launch directly from the installer's **Open** button or your desktop **Application Menu**.
+- **Automatic Wayland & X11 Detection on GUI Startup**: Probes `/run/user/$UID/wayland-*`, `/tmp/.X11-unix/X*`, `systemctl --user`, and `loginctl`/`elogind` before `gtk_init_check`—even when launched from GUI menus with blank environment variables.
+- **Flexible Capture Targets**: Record **Entire Screen**, **Application Window**, or **Browser Tab / Window** (via `org.freedesktop.portal.ScreenCast` + PipeWire on Wayland, or `libX11` window geometry + `x11grab` on X11).
+- **System Audio + Microphone**: Record desktop/system audio (`.monitor` sink), optionally mix microphone voiceover (`amix`), or record silent video.
+- **Mouse Cursor Visibility Toggle**: Include or hide the mouse pointer (`cursor_mode = 2|1` on Wayland Portal; `-draw_mouse 1|0` on X11).
+- **Global Power-User Keyboard Shortcuts**: Default `F9` start/stop, `F10` pause/resume, `Alt+S` system audio, `Alt+M` microphone, and `Alt+C` cursor toggle—customizable in `~/.config/screenrec/shortcuts.conf` with global X11 `XGrabKey` hotkeys.
+- **Direct MP4 Output**: Saves H.264 (`yuv420p`) + AAC `.mp4` files with `+faststart` metadata via native GTK Save dialog.
 
-## Installing the `.deb` Package on Debian / Ubuntu
+## Installing on Debian-Based Distros (GUI — No Terminal Needed)
 
-Download `screenrec_<version>_amd64.deb` from the **Releases** page and install via `apt`:
+1. Download **`screenrec_2.0.0_amd64.deb`** from **GitHub Releases** (or the companion web download panel).
+2. Double-click `screenrec_2.0.0_amd64.deb` in your file manager to open your distro's **GUI Package Installer** and click **Install**.
+3. Click **Open / Launch** inside the installer, or launch **ScreenRec** from your desktop **Application Menu** (*Sound & Video* / *Multimedia*).
+
+*(Optional CLI alternative: `sudo apt install ./screenrec_2.0.0_amd64.deb`)*
+
+## Building & Running the Automated Test Suite
 
 ```bash
-sudo apt install ./screenrec_1.0.0_amd64.deb
-```
+# Compile native C11 + GTK3 binary and run C unit tests + headless Xvfb GTK3 & MP4 self-test
+make -C native test
 
-Then launch **ScreenRec** from your desktop application menu or run `screenrec` in a terminal.
-
-## Development & Automated Test Suite
-
-```bash
-# Install dependencies
-npm install
-
-# Run the full unit + integration test suite (X11/Wayland detection, FFmpeg MP4 muxing, dpkg-deb verification)
-npm test
-
-# Start the development server on http://localhost:3000
-npm run dev
-
-# Build production assets and generate dist-deb/screenrec_1.0.0_amd64.deb
+# Build dist-deb/screenrec_2.0.0_amd64.deb
 npm run build:deb
-```
 
-## Publishing a `.deb` Release on GitHub
-
-Tagging a version automatically runs the full test suite on `ubuntu-latest`, builds the standalone Electron `.deb` installer, generates `SHA256SUMS.txt`, and publishes the `.deb` file to **GitHub Releases**:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
+# Run full repository test suite (native ELF verification, multi-distro .deb inspection, API & logic tests)
+npm test
 ```

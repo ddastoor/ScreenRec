@@ -8,16 +8,18 @@ on:
 
 jobs:
   test-and-verify:
-    name: Test Suite & Debian .deb Verification
-    runs-on: ubuntu-latest
+    name: Native GTK3 C11 + Debian .deb Test Suite
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies (FFmpeg & dpkg-deb)
+      - name: Install native GTK3 C11 & Debian packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg dpkg
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libgtk-3-dev libx11-dev \
+            xvfb x11-utils pulseaudio-utils ffmpeg dpkg file
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -28,17 +30,20 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Compile & test native C11 + GTK3 desktop app (unit + Xvfb GUI & MP4 test)
+        run: make -C native clean && make -C native test
+
       - name: Typecheck (TypeScript)
         run: npm run lint
 
-      - name: Build production frontend bundle
+      - name: Build production web companion bundle
         run: npm run build
 
-      - name: Run full unit & integration test suite
-        run: npm test
-
-      - name: Build & verify Debian .deb package
+      - name: Build & verify native Debian .deb package
         run: |
           npm run build:deb
           dpkg-deb --info dist-deb/screenrec_*_amd64.deb
           dpkg-deb --contents dist-deb/screenrec_*_amd64.deb
+
+      - name: Run full unit & Debian .deb integration test suite
+        run: npm test

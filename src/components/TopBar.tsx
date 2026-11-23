@@ -5,12 +5,14 @@ import type { ActiveView } from '../types';
 interface TopBarProps {
   activeView: ActiveView;
   recordingsCount: number;
+  isInstalledDesktop?: boolean;
   onSelectView: (view: ActiveView) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
   activeView,
   recordingsCount,
+  isInstalledDesktop,
   onSelectView,
 }) => {
   const navItems: { id: ActiveView; label: string }[] = [
@@ -19,6 +21,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       id: 'recordings',
       label: recordingsCount > 0 ? `Recordings (${recordingsCount})` : 'Recordings',
     },
+    { id: 'shortcuts', label: 'Shortcuts' },
     { id: 'debian', label: 'Debian Installer' },
   ];
 
@@ -61,14 +64,24 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Zone 3: 1 primary action */}
         <div className="flex items-center shrink-0">
-          <a
-            href="/api/package/deb"
-            download
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-          >
-            <Download className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Download .deb</span>
-          </a>
+          {isInstalledDesktop ? (
+            <button
+              type="button"
+              onClick={() => onSelectView('recorder')}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              <span>Recorder Studio</span>
+            </button>
+          ) : (
+            <a
+              href="/api/package/deb"
+              download
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Download .deb</span>
+            </a>
+          )}
         </div>
       </div>
     </header>

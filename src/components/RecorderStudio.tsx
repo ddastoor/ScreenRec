@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   AppWindow,
   ChevronDown,
@@ -27,23 +27,40 @@ import {
 } from '../utils/recorderConfig';
 import { createRecordingStreamMixer, type AudioMixerHandle } from '../utils/audioMixer';
 import { createDemoCaptureStream, type DemoStreamHandle } from '../utils/demoStream';
+import type { ShortcutActionId, ShortcutBinding } from '../utils/shortcuts';
+
+export type StudioState =
+  | 'idle'
+  | 'requesting'
+  | 'recording'
+  | 'paused'
+  | 'converting'
+  | 'completed';
+
+export interface RecorderStudioHandle {
+  dispatchShortcut: (action: ShortcutActionId) => void;
+}
 
 interface RecorderStudioProps {
+  ref?: React.Ref<RecorderStudioHandle>;
   systemInfo: SystemInfo | null;
   systemLoading: boolean;
   simulationMode: 'auto' | 'wayland' | 'x11';
+  shortcuts: ShortcutBinding[];
   onChangeSimulationMode: (mode: 'auto' | 'wayland' | 'x11') => void;
   onClipSaved: (clip: RecordedClip) => void;
+  onStateChange?: (state: StudioState, elapsedSeconds: number) => void;
 }
 
-type StudioState = 'idle' | 'requesting' | 'recording' | 'paused' | 'converting' | 'completed';
-
 export const RecorderStudio: React.FC<RecorderStudioProps> = ({
+  ref,
   systemInfo,
   systemLoading,
   simulationMode,
+  shortcuts,
   onChangeSimulationMode,
   onClipSaved,
+  onStateChange,
 }) => {
   const [sourceType, setSourceType] = useState<CaptureSourceType>('monitor');
   const [systemAudio, setSystemAudio] = useState<boolean>(true);
@@ -350,6 +367,55 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
     studioState === 'paused' ||
     studioState === 'converting';
 
+  useEffect(() => {
+    onStateChange?.(studioState, elapsedSeconds);
+  }, [studioState, elapsedSeconds, onStateChange]);
+
+  useImperativeHandle(ref, () => ({
+    dispatchShortcut: (action: ShortcutActionId) => {
+      if (studioState === 'requesting' || studioState === 'converting') {
+        return;
+      }
+      switch (action) {
+        case 'toggleRecord':
+          if (studioState === 'recording' || studioState === 'paused') {
+            handleStopRecording();
+          } else {
+            void handleStartDisplayCapture();
+          }
+          break;
+        case 'toggleDemoRecord':
+          if (studioState === 'recording' || studioState === 'paused') {
+            handleStopRecording();
+          } else {
+            void handleStartDemoCapture();
+          }
+          break;
+        case 'togglePause':
+          if (studioState === 'recording' || studioState === 'paused') {
+            handlePauseResume();
+          }
+          break;
+        case 'toggleSystemAudio':
+          if (!isBusy) {
+            setSystemAudio((prev) => !prev);
+          }
+          break;
+        case 'toggleMic':
+          if (!isBusy) {
+            setMicAudio((prev) => !prev);
+          }
+          break;
+        case 'toggleCursor':
+          setIncludeCursor((prev) => !prev);
+          break;
+      }
+    },
+  }));
+
+  const comboFor = (action: ShortcutActionId): string =>
+    shortcuts.find((s) => s.action === action)?.combo || '';
+
   const sourceOptions: {
     id: CaptureSourceType;
     label: string;
@@ -443,10 +509,11 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                 Linux Display Protocol & Capture Pipeline
               </h2>
               <p className="text-xs text-slate-600 mt-0.5">
-                ScreenRec probes <code className="font-mono">XDG_SESSION_TYPE</code>,{' '}
-                <code className="font-mono">WAYLAND_DISPLAY</code>, and{' '}
-                <code className="font-mono">DISPLAY</code> on startup to select PipeWire Portal or
-                X11Grab automatically.
+                ScreenRec probes Wayland/X11 compositor sockets (
+                <code className="font-mono">/run/user/$UID/wayland-*</code>,{' '}
+                <code className="font-mono">/tmp/.X11-unix/X*</code>),{' '}
+                <code className="font-mono">systemd-logind</code>, and session metadata on GUI
+                startup—selecting PipeWire Portal or X11Grab automatically with no command line needed.
               </p>
             </div>
 
@@ -555,7 +622,15 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                   <div className="flex items-start gap-3">
                     <Volume2 className="w-4 h-4 text-slate-600 mt-0.5 shrink-0" aria-hidden="true" />
                     <div>
-                      <span className="block text-sm font-medium text-slate-900">System Audio</span>
+                      <span className="block text-sm font-medium text-slate-900">
+                        System Audio{' '}
+                        <kbd
+                          aria-hidden="true"
+                          className="ml-1 font-mono text-[11px] font-normal text-slate-500"
+                        >
+                          {comboFor('toggleSystemAudio')}
+                        </kbd>
+                      </span>
                       <span className="block text-xs text-slate-500">
                         Record desktop output or browser tab sound
                       </span>
@@ -565,6 +640,7 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                     type="checkbox"
                     checked={systemAudio}
                     disabled={isBusy}
+                    aria-keyshortcuts={comboFor('toggleSystemAudio')}
                     onChange={(e) => setSystemAudio(e.target.checked)}
                     className="w-4 h-4 accent-slate-900 rounded cursor-pointer disabled:opacity-50"
                   />
@@ -576,7 +652,15 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                     <div className="flex items-start gap-3">
                       <Mic className="w-4 h-4 text-slate-600 mt-0.5 shrink-0" aria-hidden="true" />
                       <div>
-                        <span className="block text-sm font-medium text-slate-900">Microphone</span>
+                        <span className="block text-sm font-medium text-slate-900">
+                          Microphone{' '}
+                          <kbd
+                            aria-hidden="true"
+                            className="ml-1 font-mono text-[11px] font-normal text-slate-500"
+                          >
+                            {comboFor('toggleMic')}
+                          </kbd>
+                        </span>
                         <span className="block text-xs text-slate-500">
                           Mix your voiceover into the recording
                         </span>
@@ -586,6 +670,7 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                       type="checkbox"
                       checked={micAudio}
                       disabled={isBusy}
+                      aria-keyshortcuts={comboFor('toggleMic')}
                       onChange={(e) => setMicAudio(e.target.checked)}
                       className="w-4 h-4 accent-slate-900 rounded cursor-pointer disabled:opacity-50"
                     />
@@ -626,7 +711,13 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                     />
                     <div>
                       <span className="block text-sm font-medium text-slate-900">
-                        Include Mouse Cursor
+                        Include Mouse Cursor{' '}
+                        <kbd
+                          aria-hidden="true"
+                          className="ml-1 font-mono text-[11px] font-normal text-slate-500"
+                        >
+                          {comboFor('toggleCursor')}
+                        </kbd>
                       </span>
                       <span className="block text-xs text-slate-500">
                         Show mouse pointer movements in screencast
@@ -637,6 +728,7 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                     type="checkbox"
                     checked={includeCursor}
                     disabled={studioState === 'converting'}
+                    aria-keyshortcuts={comboFor('toggleCursor')}
                     onChange={(e) => setIncludeCursor(e.target.checked)}
                     className="w-4 h-4 accent-slate-900 rounded cursor-pointer disabled:opacity-50"
                   />
@@ -660,8 +752,9 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
+                  aria-keyshortcuts={comboFor('togglePause')}
                   onClick={handlePauseResume}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap"
                 >
                   {studioState === 'paused' ? (
                     <>
@@ -674,15 +767,28 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                       <span>Pause</span>
                     </>
                   )}
+                  <kbd
+                    aria-hidden="true"
+                    className="font-mono text-[11px] font-medium text-slate-500"
+                  >
+                    {comboFor('togglePause')}
+                  </kbd>
                 </button>
 
                 <button
                   type="button"
+                  aria-keyshortcuts={comboFor('toggleRecord')}
                   onClick={handleStopRecording}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors whitespace-nowrap"
                 >
                   <Square className="w-4 h-4 fill-current" aria-hidden="true" />
                   <span>Stop & Save MP4</span>
+                  <kbd
+                    aria-hidden="true"
+                    className="font-mono text-[11px] font-medium text-red-100"
+                  >
+                    {comboFor('toggleRecord')}
+                  </kbd>
                 </button>
               </div>
             ) : (
@@ -690,6 +796,7 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                 <button
                   type="button"
                   disabled={studioState === 'requesting' || studioState === 'converting'}
+                  aria-keyshortcuts={comboFor('toggleRecord')}
                   onClick={handleStartDisplayCapture}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap"
                 >
@@ -701,15 +808,30 @@ export const RecorderStudio: React.FC<RecorderStudioProps> = ({
                         ? 'Encoding MP4 (H.264 / AAC)...'
                         : 'Start Recording'}
                   </span>
+                  {studioState !== 'requesting' && studioState !== 'converting' && (
+                    <kbd
+                      aria-hidden="true"
+                      className="ml-1 font-mono text-[11px] font-medium text-red-100"
+                    >
+                      {comboFor('toggleRecord')}
+                    </kbd>
+                  )}
                 </button>
 
                 <button
                   type="button"
                   disabled={studioState === 'requesting' || studioState === 'converting'}
+                  aria-keyshortcuts={comboFor('toggleDemoRecord')}
                   onClick={handleStartDemoCapture}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap"
                 >
                   <span>Record Test Screen (Simulated Preview)</span>
+                  <kbd
+                    aria-hidden="true"
+                    className="font-mono text-[11px] text-slate-500"
+                  >
+                    {comboFor('toggleDemoRecord')}
+                  </kbd>
                 </button>
               </div>
             )}

@@ -72,18 +72,60 @@ export function probeLinuxEnvironment(envOverride?: DisplayEnvInput): SystemInfo
   const x11Sockets = listSockets('/tmp/.X11-unix', 'X');
 
   let loginctlType = '';
-  if (!envOverride && !process.env.XDG_SESSION_TYPE && !process.env.WAYLAND_DISPLAY && !process.env.DISPLAY) {
-    const sessionId = process.env.XDG_SESSION_ID;
-    if (sessionId) {
-      loginctlType = safeExec('loginctl', ['show-session', sessionId, '-p', 'Type', '--value']) || '';
+  let sysWaylandDisplay = process.env.WAYLAND_DISPLAY;
+  let sysX11Display = process.env.DISPLAY;
+  let sysDesktop = process.env.XDG_CURRENT_DESKTOP;
+
+  if (
+    !envOverride &&
+    !process.env.XDG_SESSION_TYPE &&
+    !sysWaylandDisplay &&
+    !sysX11Display &&
+    waylandSockets.length === 0
+  ) {
+    const userEnv = safeExec('systemctl', ['--user', 'show-environment']);
+    if (userEnv) {
+      for (const line of userEnv.split('\n')) {
+        const idx = line.indexOf('=');
+        if (idx === -1) continue;
+        const k = line.slice(0, idx).trim();
+        const v = line.slice(idx + 1).trim();
+        if (k === 'XDG_SESSION_TYPE' && v) loginctlType = v.toLowerCase();
+        else if (k === 'WAYLAND_DISPLAY' && v && !sysWaylandDisplay) sysWaylandDisplay = v;
+        else if (k === 'DISPLAY' && v && !sysX11Display) sysX11Display = v;
+        else if (k === 'XDG_CURRENT_DESKTOP' && v && !sysDesktop) sysDesktop = v;
+      }
+    }
+
+    if (!loginctlType) {
+      const sessionId = process.env.XDG_SESSION_ID;
+      if (sessionId) {
+        loginctlType = safeExec('loginctl', ['show-session', sessionId, '-p', 'Type', '--value']) || '';
+      } else {
+        const sessionsOut = safeExec('loginctl', ['list-sessions', '--no-legend']);
+        if (sessionsOut) {
+          for (const line of sessionsOut.split('\n')) {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < 2 || parts[1] !== String(uid)) continue;
+            const sid = parts[0]!;
+            const stype = (
+              safeExec('loginctl', ['show-session', sid, '-p', 'Type', '--value']) || ''
+            ).toLowerCase();
+            if (stype === 'wayland' || stype === 'x11') {
+              loginctlType = stype;
+              break;
+            }
+          }
+        }
+      }
     }
   }
 
   const envInput: DisplayEnvInput = envOverride ?? {
     xdgSessionType: process.env.XDG_SESSION_TYPE || process.env.SCREENREC_DETECTED_SESSION,
-    waylandDisplay: process.env.WAYLAND_DISPLAY,
-    display: process.env.DISPLAY,
-    xdgCurrentDesktop: process.env.XDG_CURRENT_DESKTOP,
+    waylandDisplay: sysWaylandDisplay,
+    display: sysX11Display,
+    xdgCurrentDesktop: sysDesktop,
     desktopSession: process.env.DESKTOP_SESSION,
     waylandSockets,
     x11Sockets,

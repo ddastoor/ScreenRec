@@ -1,17 +1,16 @@
 {
   "name": "screenrec",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Simple screen recorder for Debian-based Linux distributions with X11/Wayland auto-detection and MP4 export",
+  "description": "Simple natively compiled GTK3 screen recorder for Debian-based Linux distributions with X11/Wayland auto-detection and MP4 export",
   "type": "module",
-  "main": "electron/main.cjs",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
     "start": "node server.ts",
     "lint": "tsc --noEmit",
     "test": "npx --yes tsx --test src/utils/*.test.ts tests/*.test.ts",
-    "build:deb": "npm run build && node scripts/build-deb.mjs"
+    "build:deb": "node scripts/build-deb.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",

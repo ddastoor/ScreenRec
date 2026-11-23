@@ -10,16 +10,36 @@ let cachedDebBuild: {
   filePath: string;
   version: string;
   arch: string;
+  binaryFormat?: string;
   sizeBytes: number;
   sha256: string;
   dpkgInfo: string;
+  builtAtMs?: number;
 } | null = null;
 
 function ensureDebArtifact() {
-  if (cachedDebBuild && fs.existsSync(cachedDebBuild.filePath)) {
+  const watchFiles = [
+    'package.json',
+    'scripts/build-deb.mjs',
+    'native/src/main.c',
+    'native/src/core.c',
+    'native/src/core.h',
+    'native/src/wayland_portal.c',
+    'native/src/wayland_portal.h',
+  ];
+  const newestConfigMs = Math.max(
+    ...watchFiles.map((f) => (fs.existsSync(f) ? fs.statSync(f).mtimeMs : 0))
+  );
+
+  if (
+    cachedDebBuild &&
+    fs.existsSync(cachedDebBuild.filePath) &&
+    (cachedDebBuild.builtAtMs ?? 0) >= newestConfigMs
+  ) {
     return cachedDebBuild;
   }
-  cachedDebBuild = buildDebianPackage();
+  const built = buildDebianPackage();
+  cachedDebBuild = { ...built, builtAtMs: Date.now() };
   return cachedDebBuild;
 }
 
@@ -104,6 +124,7 @@ export function createApiApp(): Express {
         fileName: info.fileName,
         version: info.version,
         arch: info.arch,
+        binaryFormat: info.binaryFormat,
         sizeBytes: info.sizeBytes,
         sha256: info.sha256,
         dpkgInfo: info.dpkgInfo,

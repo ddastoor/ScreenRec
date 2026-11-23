@@ -1,10 +1,13 @@
 import type { DisplayDetectionResult } from './utils/displayServer';
 import type { CaptureSourceType } from './utils/recorderConfig';
 
-export type ActiveView = 'recorder' | 'recordings' | 'debian';
+import type { ShortcutActionId } from './utils/shortcuts';
+
+export type ActiveView = 'recorder' | 'recordings' | 'shortcuts' | 'debian';
 
 export interface SystemInfo {
   detectedAt: string;
+  isInstalledDesktop?: boolean;
   os: {
     prettyName: string;
     id: string;
@@ -43,8 +46,10 @@ export interface DebPackageInfo {
   fileName: string;
   version: string;
   arch: string;
+  binaryFormat?: string;
   sizeBytes: number;
   sha256: string;
+  installedOnSystem?: boolean;
   dpkgInfo: string;
   installCommand: string;
   dpkgCommand: string;
@@ -67,6 +72,10 @@ export interface DesktopBridge {
     defaultFilename: string;
     rawBytes: ArrayBuffer;
   }) => Promise<{ saved: boolean; filePath?: string }>;
+  syncShortcuts?: (
+    bindings: { action: ShortcutActionId; accelerator: string }[]
+  ) => Promise<{ registered: ShortcutActionId[] }>;
+  onShortcutTriggered?: (listener: (action: ShortcutActionId) => void) => () => void;
 }
 
 declare global {

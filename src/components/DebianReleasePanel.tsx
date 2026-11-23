@@ -7,6 +7,33 @@ interface DebianReleasePanelProps {
   systemInfo: SystemInfo | null;
 }
 
+const SUPPORTED_DEBIAN_DISTROS = [
+  {
+    family: 'Debian Stable & Testing',
+    releases: 'Debian 12 (Bookworm), Debian 13 (Trixie), LMDE 6',
+    guiInstaller: 'GNOME Software, KDE Discover, GDebi, Synaptic',
+    notes: 'Wayland Portal + PipeWire & X11 x11grab',
+  },
+  {
+    family: 'Ubuntu & Official Flavors',
+    releases: 'Ubuntu 22.04 LTS (Jammy), 24.04 LTS (Noble), Kubuntu, Xubuntu',
+    guiInstaller: 'App Center, GNOME Software, KDE Discover',
+    notes: 'Pre-t64 & t64 GTK3 ABI safe (libgtk-3-bin)',
+  },
+  {
+    family: 'Linux Mint & Pop!_OS',
+    releases: 'Linux Mint 21.x / 22.x (Cinnamon, MATE, Xfce), Pop!_OS 22.04 / 24.04',
+    guiInstaller: 'MintInstall (Gdebi), Cosmic Store, Pop!_Shop',
+    notes: 'Auto-detects X11 Cinnamon & COSMIC Wayland',
+  },
+  {
+    family: 'MX Linux, Devuan & Rolling Derivatives',
+    releases: 'MX Linux 23, Zorin OS 17, KDE neon, Elementary OS, Kali Rolling',
+    guiInstaller: 'MX Package Installer, Discover, GDebi',
+    notes: 'Works with both systemd & SysVinit / elogind',
+  },
+];
+
 export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemInfo }) => {
   const [debInfo, setDebInfo] = useState<DebPackageInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,8 +73,8 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
     window.setTimeout(() => setCopiedCmd(null), 1800);
   };
 
-  const installCmd = debInfo?.installCommand || 'sudo apt install ./screenrec_1.0.0_amd64.deb';
-  const releaseCmd = 'git tag v1.0.0 && git push origin v1.0.0';
+  const pkgFileName = debInfo?.fileName || 'screenrec_2.0.0_amd64.deb';
+  const installCmd = debInfo?.installCommand || `sudo apt install ./${pkgFileName}`;
 
   return (
     <section aria-labelledby="debian-heading" className="space-y-6">
@@ -55,12 +82,12 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1 max-w-2xl">
             <h1 id="debian-heading" className="text-xl font-bold text-slate-900">
-              Debian Linux Installer (.deb) & GitHub Release
+              Native GTK3 Debian Installer (.deb) & GitHub Release
             </h1>
             <p className="text-sm text-slate-600">
-              Install ScreenRec natively on Debian 12+, Ubuntu 22.04/24.04+, Linux Mint, Pop!_OS, or
-              publish standalone <code className="font-mono">.deb</code> packages automatically on
-              GitHub Releases.
+              Natively compiled C11 + GTK3 ELF desktop binary (<code className="font-mono">/usr/bin/screenrec</code>)
+              with zero Electron or localhost web wrapper—built for Debian, Ubuntu, Linux Mint, MX Linux,
+              Pop!_OS, KDE neon, Zorin OS, and Kali.
             </p>
           </div>
 
@@ -70,13 +97,13 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
           >
             <Download className="w-4 h-4" aria-hidden="true" />
-            <span>Download {debInfo?.fileName || 'screenrec_1.0.0_amd64.deb'}</span>
+            <span>Download {pkgFileName}</span>
           </a>
         </div>
 
         {loading && (
           <div className="text-xs text-slate-500 py-2">
-            Building and verifying Debian package metadata with dpkg-deb...
+            Compiling native C11 + GTK3 binary and verifying Debian package metadata...
           </div>
         )}
 
@@ -87,7 +114,7 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
         )}
 
         {debInfo && (
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-3 border-t border-slate-100 text-xs">
             <div>
               <span className="text-slate-500 block">Package File</span>
               <span className="font-mono font-semibold text-slate-900 mt-0.5 block" data-testid="deb-filename">
@@ -95,9 +122,9 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
               </span>
             </div>
             <div>
-              <span className="text-slate-500 block">Architecture</span>
+              <span className="text-slate-500 block">Compiled Binary</span>
               <span className="font-mono font-semibold text-slate-900 mt-0.5 block">
-                {debInfo.arch} (Debian / Ubuntu)
+                {debInfo.binaryFormat || 'ELF 64-bit C11 + GTK3'}
               </span>
             </div>
             <div>
@@ -108,10 +135,7 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
             </div>
             <div>
               <span className="text-slate-500 block">SHA-256 Checksum</span>
-              <span
-                className="font-mono text-slate-800 mt-0.5 block truncate"
-                title={debInfo.sha256}
-              >
+              <span className="font-mono text-slate-800 mt-0.5 block truncate" title={debInfo.sha256}>
                 {debInfo.sha256.slice(0, 20)}...
               </span>
             </div>
@@ -119,84 +143,141 @@ export const DebianReleasePanel: React.FC<DebianReleasePanelProps> = ({ systemIn
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Install Instructions */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+      {/* Multi-Distro Debian Compatibility Table */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+        <div className="space-y-1">
           <h2 className="text-base font-semibold text-slate-900">
-            Install on Debian / Ubuntu
+            Supported Debian-Based Linux Distributions
           </h2>
-
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Use <code className="font-mono">apt</code> so dependencies (<code className="font-mono">ffmpeg</code>,{' '}
-            <code className="font-mono">xdg-desktop-portal</code>, and PipeWire/PulseAudio utilities)
-            are resolved automatically:
+          <p className="text-xs text-slate-600">
+            Engineered with <code className="font-mono">GLIBC_2.34</code> compatibility,{' '}
+            <code className="font-mono">libgtk-3-bin</code> cross-ABI dependencies (supporting both pre-
+            <code className="font-mono">t64</code> and Ubuntu 24.04 / Debian 13{' '}
+            <code className="font-mono">t64</code> libraries), and init-system-independent socket scanning.
           </p>
-
-          <div className="flex items-center justify-between gap-2 bg-slate-900 text-slate-100 rounded-lg px-3.5 py-2.5 font-mono text-xs">
-            <span className="overflow-x-auto">{installCmd}</span>
-            <button
-              type="button"
-              onClick={() => copyText(installCmd, 'apt')}
-              aria-label="Copy apt install command"
-              className="p-1.5 text-slate-300 hover:text-white rounded transition-colors shrink-0"
-            >
-              {copiedCmd === 'apt' ? (
-                <Check className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
-              ) : (
-                <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-            </button>
-          </div>
-
-          <div className="space-y-2 text-xs text-slate-600 pt-1">
-            <p className="font-semibold text-slate-800">X11 & Wayland Runtime Behavior:</p>
-            <p>
-              · <strong className="text-slate-900">Wayland Sessions</strong>: Detected automatically
-              on startup via <code className="font-mono">XDG_SESSION_TYPE=wayland</code> or{' '}
-              <code className="font-mono">WAYLAND_DISPLAY</code>; enables Chromium PipeWire
-              ScreenCast portal with embedded or hidden cursor mode.
-            </p>
-            <p>
-              · <strong className="text-slate-900">X11 Sessions</strong>: Detected via{' '}
-              <code className="font-mono">XDG_SESSION_TYPE=x11</code> or{' '}
-              <code className="font-mono">DISPLAY</code>; captures desktop or individual X11 window
-              IDs with XFixes cursor control.
-            </p>
-          </div>
         </div>
 
-        {/* GitHub Releases Automation */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="py-2 pr-4 font-semibold">Distribution Family</th>
+                <th className="py-2 pr-4 font-semibold">Tested Releases</th>
+                <th className="py-2 pr-4 font-semibold">GUI Package Installer</th>
+                <th className="py-2 font-semibold">Display & Init Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {SUPPORTED_DEBIAN_DISTROS.map((row) => (
+                <tr key={row.family} className="hover:bg-slate-50/70">
+                  <td className="py-2.5 pr-4 font-semibold text-slate-900 whitespace-nowrap">
+                    {row.family}
+                  </td>
+                  <td className="py-2.5 pr-4">{row.releases}</td>
+                  <td className="py-2.5 pr-4">{row.guiInstaller}</td>
+                  <td className="py-2.5 text-slate-600">{row.notes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
           <h2 className="text-base font-semibold text-slate-900">
-            GitHub Releases (.deb CI/CD Pipeline)
+            1-Click GUI Install & Launch (No Command Line Required)
+          </h2>
+
+          <ol className="space-y-2.5 text-xs text-slate-700 list-decimal list-inside leading-relaxed">
+            <li>
+              Download <span className="font-mono font-semibold text-slate-900">{pkgFileName}</span>{' '}
+              above (or from GitHub Releases).
+            </li>
+            <li>
+              Double-click the <code className="font-mono">.deb</code> file in your file manager to
+              open your distro&apos;s <strong>GUI Package Installer</strong> (<em>GNOME Software</em>,{' '}
+              <em>KDE Discover</em>, <em>GDebi</em>, <em>MintInstall</em>, or <em>MX Package Installer</em>)
+              and click <strong>Install</strong>.
+            </li>
+            <li>
+              Click <strong>Open / Launch</strong> inside the installer, or launch{' '}
+              <strong>ScreenRec</strong> from your desktop <strong>Application Menu</strong> (under{' '}
+              <em>Sound &amp; Video</em> / <em>Multimedia</em>).
+            </li>
+          </ol>
+
+          <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
+            <p className="font-semibold text-slate-800">
+              Native C11 + GTK3 Startup Architecture:
+            </p>
+            <p>
+              · <strong className="text-slate-900">Instant Native Window</strong>: Launches directly as a
+              compiled GTK3 desktop window—no localhost port, no Python/Node daemon, and no Chromium wrapper.
+            </p>
+            <p>
+              · <strong className="text-slate-900">Automatic Wayland &amp; X11 Socket Probing</strong>:
+              Scans <code className="font-mono">/run/user/$UID/wayland-*</code>,{' '}
+              <code className="font-mono">/tmp/.X11-unix/X*</code>, and{' '}
+              <code className="font-mono">loginctl</code>/<code className="font-mono">elogind</code> before{' '}
+              <code className="font-mono">gtk_init_check</code> even when started from GUI menus with blank
+              environment variables.
+            </p>
+          </div>
+
+          <details className="text-xs text-slate-600 pt-1">
+            <summary className="cursor-pointer font-medium text-slate-700 hover:text-slate-900">
+              Optional: Install from Terminal (apt)
+            </summary>
+            <div className="mt-2 flex items-center justify-between gap-2 bg-slate-900 text-slate-100 rounded-lg px-3.5 py-2.5 font-mono text-xs">
+              <span className="overflow-x-auto">{installCmd}</span>
+              <button
+                type="button"
+                onClick={() => copyText(installCmd, 'apt')}
+                aria-label="Copy apt install command"
+                className="p-1.5 text-slate-300 hover:text-white rounded transition-colors shrink-0"
+              >
+                {copiedCmd === 'apt' ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </details>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <h2 className="text-base font-semibold text-slate-900">
+            Automated GitHub Releases (.deb CI/CD Pipeline)
           </h2>
           <p className="text-xs text-slate-600 leading-relaxed">
-            This repository includes <code className="font-mono">.github/workflows/release.yml</code>{' '}
-            and <code className="font-mono">.github/workflows/ci.yml</code>. Pushing a semantic
-            version tag runs the automated test suite, packages the standalone Electron{' '}
-            <code className="font-mono">.deb</code> installer, and attaches it to your GitHub
-            Releases page:
+            <code className="font-mono">.github/workflows/release.yml</code> compiles the native C11 + GTK3
+            binary against baseline <code className="font-mono">GLIBC_2.34</code>, runs the native{' '}
+            <code className="font-mono">Xvfb</code> GTK3 self-test and repository test suite, builds{' '}
+            <code className="font-mono">{pkgFileName}</code>, and publishes directly to{' '}
+            <strong>GitHub Releases</strong> on every push to <code className="font-mono">main</code> or{' '}
+            <code className="font-mono">v*.*.*</code> tag.
           </p>
 
-          <div className="flex items-center justify-between gap-2 bg-slate-900 text-slate-100 rounded-lg px-3.5 py-2.5 font-mono text-xs">
-            <span className="overflow-x-auto">{releaseCmd}</span>
-            <button
-              type="button"
-              onClick={() => copyText(releaseCmd, 'tag')}
-              aria-label="Copy git tag release command"
-              className="p-1.5 text-slate-300 hover:text-white rounded transition-colors shrink-0"
-            >
-              {copiedCmd === 'tag' ? (
-                <Check className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
-              ) : (
-                <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-            </button>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 text-xs text-slate-700 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold text-slate-900">Release Workflow Trigger</span>
+              <span className="font-mono text-slate-800">push → main / v*.*.*</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold text-slate-900">Published GitHub Release Asset</span>
+              <span className="font-mono text-slate-800">{pkgFileName}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold text-slate-900">Installed Binary Target</span>
+              <span className="font-mono text-slate-800">/usr/bin/screenrec (GTK3 ELF)</span>
+            </div>
           </div>
 
           {systemInfo && (
             <div className="text-xs text-slate-600 space-y-1 pt-1">
-              <p className="font-semibold text-slate-800">Current Host Verification:</p>
+              <p className="font-semibold text-slate-800">Build Host Verification:</p>
               <p className="font-mono text-[11px] text-slate-700">
                 OS: {systemInfo.os.prettyName} ({systemInfo.os.arch}) · FFmpeg:{' '}
                 {systemInfo.capabilities.ffmpegAvailable ? 'Ready (H.264/AAC)' : 'Unavailable'} ·

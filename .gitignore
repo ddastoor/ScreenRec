@@ -1,8 +1,9 @@
 node_modules/
 dist/
 dist-deb/
-dist-electron/
 .playwright-cli/
+native/bin/test_native_core
+native/bin/*.png
 .env
 .env.local
 *.log

@@ -40,6 +40,31 @@ test('auto-detects X11 when XDG_SESSION_TYPE=x11 or DISPLAY is set without Wayla
   assert.match(res.captureBackend, /x11grab/);
 });
 
+test('auto-detects Wayland with XWayland from GUI sockets alone when CLI env vars are unset', () => {
+  const res = detectDisplayServer({
+    waylandSockets: ['/run/user/1000/wayland-0'],
+    x11Sockets: ['/tmp/.X11-unix/X0'],
+  });
+  assert.equal(res.protocol, 'wayland');
+  assert.equal(res.isXWaylandAvailable, true);
+  assert.equal(res.label, 'Wayland (with XWayland)');
+  assert.match(res.detectedVia, /Wayland socket/);
+});
+
+test('auto-detects X11 from /tmp/.X11-unix socket or loginctl when CLI env vars are unset', () => {
+  const fromSocket = detectDisplayServer({
+    x11Sockets: ['/tmp/.X11-unix/X0'],
+  });
+  assert.equal(fromSocket.protocol, 'x11');
+  assert.match(fromSocket.detectedVia, /X11 socket/);
+
+  const fromLogind = detectDisplayServer({
+    loginctlType: 'wayland',
+  });
+  assert.equal(fromLogind.protocol, 'wayland');
+  assert.match(fromLogind.detectedVia, /logind/);
+});
+
 test('returns headless/web mode when neither X11 nor Wayland sockets exist', () => {
   const res = detectDisplayServer({});
   assert.equal(res.protocol, 'headless');
